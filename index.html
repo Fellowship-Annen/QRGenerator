@@ -8,37 +8,70 @@
     body {
       font-family: sans-serif;
       padding: 2em;
-    }
-    #qrcode-area {
-      margin-top: 30px;
       text-align: center;
-      page-break-after: always;
     }
+
+    #qrcode-area {
+      margin-top: 40px;
+      display: inline-block;
+      text-align: center;
+      border: 1px solid #ccc;
+      padding: 20px;
+    }
+
+    #qrcode canvas {
+      width: 35mm !important;
+      height: 35mm !important;
+    }
+
     #qr-label {
-      font-size: 18pt;
+      font-size: 16pt;
+      margin-top: 10px;
+    }
+
+    input {
+      font-size: 16px;
+      padding: 8px;
+      width: 250px;
       margin-bottom: 10px;
     }
-    /* 実寸指定：40mm四方のQRコード */
-    #qrcode > canvas {
-      width: 40mm !important;
-      height: 40mm !important;
+
+    button {
+      font-size: 16px;
+      padding: 8px 16px;
+      margin-left: 10px;
     }
 
     @media print {
       body {
         margin: 0;
+        text-align: center;
+      }
+
+      input, button, h1 {
+        display: none;
+      }
+
+      #qrcode-area {
+        border: none;
+        margin-top: 60px;
+      }
+
+      #qr-label {
+        font-size: 18pt;
       }
     }
   </style>
 </head>
 <body>
   <h1>QRコード作成フォーム</h1>
+
   <input type="text" id="idInput" placeholder="管理番号を入力（例：20250731001）" />
   <button onclick="generateQR()">QRコードを生成</button>
 
   <div id="qrcode-area">
-    <div id="qr-label"></div>
     <div id="qrcode"></div>
+    <div id="qr-label"></div>
   </div>
 
   <script>
@@ -53,8 +86,8 @@
 
       new QRCode(document.getElementById("qrcode"), {
         text: url,
-        width: 400, // px（CSSで強制的にmmへ変換）
-        height: 400
+        width: 350,
+        height: 350
       });
     }
   </script>
