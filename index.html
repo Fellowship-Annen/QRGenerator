@@ -47,8 +47,8 @@
       page-break-inside: avoid;
     }
     .qr-box img {
-      width: 3.2cm;
-      height: 3.2cm;
+      width: 3cm;
+      height: 3cm;
     }
     .qr-text {
       margin-top: 0.5em;
@@ -58,6 +58,14 @@
     @media print {
       h1, .notice, .input-box, button { display: none; }
     }
+    .inputs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1em;
+      justify-content: center;
+      max-width: 600px;
+      margin: 0 auto 1em;
+    }
   </style>
 </head>
 <body>
@@ -66,7 +74,7 @@
     最初に事業所のイニシャルをつけて、入荷年月日、連番2桁(入庫数)を入力する。<br />
     例：S25072901 → さんらいず、2025年7月29日、入庫1つ目
   </div>
-  <div id="inputs">
+  <div id="inputs" class="inputs-grid">
     <!-- 10個の入力欄 -->
   </div>
   <button onclick="generateQRCodes()">QRコードを生成</button>
@@ -76,7 +84,7 @@
   <script>
     const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfsnmtwi-h-wtKXtl4_LNaeH85BMDYT4OtVmJCaaxndELKZFw/viewform?usp=pp_url&entry.268306040=';
 
-    // 入力欄を作成
+    // 入力欄を作成（2列×5行 = 10個）
     const inputsDiv = document.getElementById('inputs');
     for (let i = 1; i <= 10; i++) {
       const input = document.createElement('input');
@@ -96,7 +104,7 @@
         if (val) {
           const qr = new QRious({
             value: FORM_URL + encodeURIComponent(val),
-            size: 300
+            size: 285 // 約3cm（96dpi x 1.18 inch）
           });
 
           const box = document.createElement('div');
