@@ -1,107 +1,118 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>QRコード作成</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QRコード作成フォーム</title>
   <style>
     body {
       font-family: sans-serif;
-      padding: 2em;
+      text-align: center;
+      margin: 2em;
+    }
+    h1 {
+      margin-bottom: 0.2em;
+    }
+    .notice {
+      color: #555;
+      font-size: 0.9em;
+      margin-bottom: 1em;
+    }
+    .input-box {
+      margin: 0.5em auto;
+      max-width: 300px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5em;
+      margin-bottom: 0.3em;
+      font-size: 1em;
       text-align: center;
     }
-
-    #notice {
-      color: #444;
-      font-size: 14px;
-      margin: 10px auto 20px auto;
-      max-width: 600px;
-    }
-
-    #qrcode-area {
-      margin-top: 40px;
-      display: inline-block;
-      text-align: center;
-      border: 1px solid #ccc;
-      padding: 20px;
-    }
-
-    #qrcode canvas {
-      width: 30mm !important;
-      height: 30mm !important;
-    }
-
-    #qr-label {
-      font-size: 16pt;
-      margin-top: 10px;
-    }
-
-    input {
-      font-size: 16px;
-      padding: 8px;
-      width: 250px;
-      margin-bottom: 10px;
-    }
-
     button {
-      font-size: 16px;
-      padding: 8px 16px;
-      margin-left: 10px;
+      padding: 0.7em 1.5em;
+      font-size: 1em;
+      margin: 1em;
+      cursor: pointer;
     }
-
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      justify-content: center;
+      gap: 2em;
+      margin-top: 2em;
+    }
+    .qr-box {
+      text-align: center;
+      page-break-inside: avoid;
+    }
+    .qr-box img {
+      width: 3.2cm;
+      height: 3.2cm;
+    }
+    .qr-text {
+      margin-top: 0.5em;
+      font-size: 0.9em;
+      word-break: break-word;
+    }
     @media print {
-      body {
-        margin: 0;
-        text-align: center;
-      }
-
-      input, button, h1, #notice {
-        display: none;
-      }
-
-      #qrcode-area {
-        border: none;
-        margin-top: 60px;
-      }
-
-      #qr-label {
-        font-size: 18pt;
-      }
+      h1, .notice, .input-box, button { display: none; }
     }
   </style>
 </head>
 <body>
   <h1>QRコード作成フォーム</h1>
-
-  <div id="notice">
-    最初に事業所のイニシャルをつけて、入荷年月日、連番2桁(入庫数)を入力する。<br>
-    <strong>例：S25072901</strong> → さんらいず、2025年7月29日、入庫1つ目
+  <div class="notice">
+    最初に事業所のイニシャルをつけて、入荷年月日、連番2桁(入庫数)を入力する。<br />
+    例：S25072901 → さんらいず、2025年7月29日、入庫1つ目
   </div>
-
-  <input type="text" id="idInput" placeholder="例：S25072901" />
-  <button onclick="generateQR()">QRコードを生成</button>
-
-  <br><br> <!-- ★ 改行をここで追加！ -->
-
-  <div id="qrcode-area">
-    <div id="qrcode"></div>
-    <div id="qr-label"></div>
+  <div id="inputs">
+    <!-- 10個の入力欄 -->
   </div>
+  <button onclick="generateQRCodes()">QRコードを生成</button>
+  <div class="qr-grid" id="qr-container"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
   <script>
-    function generateQR() {
-      const id = document.getElementById("idInput").value.trim();
-      if (!id) return;
+    const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfsnmtwi-h-wtKXtl4_LNaeH85BMDYT4OtVmJCaaxndELKZFw/viewform?usp=pp_url&entry.268306040=';
 
-      const url = `https://docs.google.com/forms/d/e/1FAIpQLSfsnmtwi-h-wtKXtl4_LNaeH85BMDYT4OtVmJCaaxndELKZFw/viewform?entry.268306040=${encodeURIComponent(id)}`;
+    // 入力欄を作成
+    const inputsDiv = document.getElementById('inputs');
+    for (let i = 1; i <= 10; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = `例：S250729${i.toString().padStart(2, '0')}`;
+      input.className = 'input-box';
+      inputsDiv.appendChild(input);
+    }
 
-      document.getElementById("qr-label").textContent = `管理番号：${id}`;
-      document.getElementById("qrcode").innerHTML = "";
+    function generateQRCodes() {
+      const container = document.getElementById('qr-container');
+      container.innerHTML = '';
 
-      new QRCode(document.getElementById("qrcode"), {
-        text: url,
-        width: 113, // 約30mm
-        height: 113
+      const inputs = inputsDiv.querySelectorAll('input');
+      inputs.forEach(input => {
+        const val = input.value.trim();
+        if (val) {
+          const qr = new QRious({
+            value: FORM_URL + encodeURIComponent(val),
+            size: 300
+          });
+
+          const box = document.createElement('div');
+          box.className = 'qr-box';
+
+          const img = document.createElement('img');
+          img.src = qr.toDataURL();
+          box.appendChild(img);
+
+          const txt = document.createElement('div');
+          txt.className = 'qr-text';
+          txt.textContent = val;
+          box.appendChild(txt);
+
+          container.appendChild(box);
+        }
       });
     }
   </script>
