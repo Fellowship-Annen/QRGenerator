@@ -11,6 +11,13 @@
       text-align: center;
     }
 
+    #notice {
+      color: #444;
+      font-size: 14px;
+      margin: 10px auto 20px auto;
+      max-width: 600px;
+    }
+
     #qrcode-area {
       margin-top: 40px;
       display: inline-block;
@@ -20,8 +27,8 @@
     }
 
     #qrcode canvas {
-      width: 35mm !important;
-      height: 35mm !important;
+      width: 30mm !important;
+      height: 30mm !important;
     }
 
     #qr-label {
@@ -48,7 +55,7 @@
         text-align: center;
       }
 
-      input, button, h1 {
+      input, button, h1, #notice {
         display: none;
       }
 
@@ -66,8 +73,15 @@
 <body>
   <h1>QRコード作成フォーム</h1>
 
-  <input type="text" id="idInput" placeholder="管理番号を入力（例：20250731001）" />
+  <div id="notice">
+    最初に事業所のイニシャルをつけて、入荷年月日、連番2桁(入庫数)を入力する。<br>
+    <strong>例：S25072901</strong> → さんらいず、2025年7月29日、入庫1つ目
+  </div>
+
+  <input type="text" id="idInput" placeholder="例：S25072901" />
   <button onclick="generateQR()">QRコードを生成</button>
+
+  <br><br> <!-- ★ 改行をここで追加！ -->
 
   <div id="qrcode-area">
     <div id="qrcode"></div>
@@ -86,8 +100,8 @@
 
       new QRCode(document.getElementById("qrcode"), {
         text: url,
-        width: 350,
-        height: 350
+        width: 113, // 約30mm
+        height: 113
       });
     }
   </script>
