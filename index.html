@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理番号QRコード生成</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+      text-align: center;
+    }
+    input, button {
+      font-size: 1.2em;
+      padding: 0.4em 1em;
+      margin: 0.5em;
+    }
+    #qr {
+      margin-top: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>QRコード生成ツール</h1>
+  <p>管理番号を入力してください：</p>
+  <input type="text" id="managementId" placeholder="例: 20250731001">
+  <br>
+  <button onclick="generateQR()">QRコードを生成</button>
+  <div id="qr">
+    <canvas id="qrCanvas"></canvas>
+  </div>
+  <a id="downloadLink" style="display:none" download="qr_code.png">QRコードをダウンロード</a>
+
+  <script>
+    function generateQR() {
+      const id = document.getElementById("managementId").value.trim();
+      if (!id) {
+        alert("管理番号を入力してください。");
+        return;
+      }
+      const url = `https://docs.google.com/forms/d/e/1FAIpQLSfsnmtwi-h-wtKXtl4_LNaeH85BMDYT4OtVmJCaaxndELKZFw/viewform?usp=pp_url&entry.268306040=${encodeURIComponent(id)}`;
+
+      const qr = new QRious({
+        element: document.getElementById("qrCanvas"),
+        value: url,
+        size: 250
+      });
+
+      const downloadLink = document.getElementById("downloadLink");
+      downloadLink.href = qr.toDataURL("image/png");
+      downloadLink.style.display = "inline-block";
+      downloadLink.textContent = "QRコードをダウンロード";
+    }
+  </script>
+</body>
+</html>
