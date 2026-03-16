@@ -2,100 +2,147 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QRコード作成フォーム</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
-      margin: 2em;
+      margin: 0;
+      padding: 0;
     }
+
     h1 {
-      margin-bottom: 0.2em;
+      margin-top: 20px;
     }
-    .notice {
-      color: #555;
-      font-size: 0.9em;
-      margin-bottom: 1em;
+
+    .instructions {
+      color: #444;
+      margin-bottom: 15px;
     }
-    .input-box {
-      margin: 0.5em auto;
-      max-width: 300px;
+
+    #inputs {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px 40px;
+      max-width: 800px;
+      margin: auto;
+      margin-bottom: 20px;
     }
-    input[type="text"] {
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      width: 220px;
+      align-items: flex-start;
+    }
+
+    .input-group input {
       width: 100%;
-      padding: 0.5em;
-      margin-bottom: 0.3em;
-      font-size: 1em;
-      text-align: center;
+      padding: 6px;
+      font-size: 16px;
     }
-    button {
-      padding: 0.7em 1.5em;
-      font-size: 1em;
-      margin: 1em;
-      cursor: pointer;
+
+    #buttons {
+      margin: 15px;
     }
-    .qr-grid {
+
+    /* 印刷時に非表示 */
+@media print {
+  .no-print,
+  #printBtn {
+    display: none !important;
+  }
+}
+
+    #qr-container {
       display: grid;
       grid-template-columns: repeat(2, auto);
+      gap: 20px 60px;
       justify-content: center;
-      gap: 2em;
-      margin-top: 2em;
-    }
-    .qr-box {
-      text-align: center;
-      page-break-inside: avoid;
-      border: 1px solid #999;
-      padding: 2mm;
+      margin: 20px auto;
       width: fit-content;
-      margin: auto;
+      page-break-inside: avoid;
     }
+
+    .qr-box {
+      border: 1px solid #000;
+      padding: 2mm; /* ← 外枠との余白2mm */
+      width: 34mm;
+      box-sizing: border-box;
+    }
+
+    .qr-box.large {
+      width: 54mm;
+    }
+
     .qr-box img {
-      width: 3cm;
-      height: 3cm;
+      display: block;
+      margin: 0 auto;
+      width: 30mm;
+      height: 30mm;
     }
+
+    .qr-box.large img {
+      width: 50mm;
+      height: 50mm;
+    }
+
     .qr-text {
-      margin-top: 0.3em;
-      font-size: 0.9em;
-      word-break: break-word;
+      font-size: 10pt;
+      margin-top: 3mm;
+      white-space: nowrap;
     }
-    @media print {
-      h1, .notice, .input-box, button { display: none; }
-    }
-    .inputs-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1em;
-      justify-content: center;
-      max-width: 600px;
-      margin: 0 auto 1em;
+
+    .qr-name {
+      font-size: 9pt;
+      margin-top: 1mm;
+      color: #000;
     }
   </style>
 </head>
 <body>
-  <h1>QRコード作成フォーム</h1>
-  <div class="notice">
-    最初に事業所のイニシャルをつけて、入荷年月日、連番2桁(入庫数)を入力する。<br />
-    例：S25072901 → さんらいず、2025年7月29日、入庫1つ目
-  </div>
-  <div id="inputs" class="inputs-grid">
-    <!-- 10個の入力欄 -->
-  </div>
-  <button onclick="generateQRCodes()">QRコードを生成</button>
-  <div class="qr-grid" id="qr-container"></div>
+  <div class="no-print">
+    <h1>QRコード作成フォーム</h1>
+    <div class="instructions">
+      最初に事業所のイニシャルをつけて、入荷年月日、連番2桁(入庫数)を入力する。<br>
+      例：S25072901 → さんらいず、2025年7月29日、入庫1つ目
+    </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <div id="inputs"></div>
+
+    <div id="buttons">
+      <button onclick="generateQRCodes()">QRコードを生成</button>
+      <button id="printBtn" onclick="window.print()" style="display:none;">印刷</button>
+      <button id="toggleSizeBtn" onclick="toggleQRCodeSize()" style="display:none;">拡大</button>
+    </div>
+  </div>
+
+  <div id="qr-container"></div>
+
   <script>
     const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfsnmtwi-h-wtKXtl4_LNaeH85BMDYT4OtVmJCaaxndELKZFw/viewform?usp=pp_url&entry.268306040=';
+    let isLargeQRCode = false;
 
-    // 入力欄を作成（2列×5行 = 10個）
     const inputsDiv = document.getElementById('inputs');
     for (let i = 1; i <= 10; i++) {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.placeholder = `例：S250729${i.toString().padStart(2, '0')}`;
-      input.className = 'input-box';
-      inputsDiv.appendChild(input);
+      const group = document.createElement('div');
+      group.className = 'input-group';
+
+      const idInput = document.createElement('input');
+      idInput.type = 'text';
+      idInput.placeholder = `例：S250729${i.toString().padStart(2, '0')}`;
+      idInput.className = 'id-input';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = '任意テキスト（名前など）';
+      nameInput.className = 'name-input';
+
+      group.appendChild(idInput);
+      group.appendChild(nameInput);
+      inputsDiv.appendChild(group);
     }
 
     function isValidID(str) {
@@ -106,45 +153,84 @@
       const container = document.getElementById('qr-container');
       container.innerHTML = '';
 
-      const inputs = inputsDiv.querySelectorAll('input');
+      const idInputs = document.querySelectorAll('.id-input');
+      const nameInputs = document.querySelectorAll('.name-input');
       let hasError = false;
 
-      inputs.forEach((input, idx) => {
+      idInputs.forEach((input, idx) => {
         const val = input.value.trim();
-        if (val) {
-          if (!isValidID(val)) {
-            alert(`入力 ${idx + 1} の管理番号「${val}」は形式が正しくありません。\n形式: A+YYMMDD+連番2桁 例：S25072901`);
-            hasError = true;
-            return;
-          }
+        if (val && !isValidID(val)) {
+          alert(`入力 ${idx + 1} の管理番号「${val}」は形式が正しくありません。\\n形式: A+YYMMDD+連番2桁 例：S25072901`);
+          hasError = true;
         }
       });
 
       if (hasError) return;
 
-      inputs.forEach(input => {
-        const val = input.value.trim();
-        if (val) {
+      idInputs.forEach((idInput, i) => {
+        const id = idInput.value.trim();
+        const name = nameInputs[i].value.trim();
+
+        if (id) {
           const qr = new QRious({
-            value: FORM_URL + encodeURIComponent(val),
+            value: FORM_URL + encodeURIComponent(id),
             size: 285
           });
 
           const box = document.createElement('div');
           box.className = 'qr-box';
+          if (isLargeQRCode) {
+            box.classList.add('large');
+          }
 
           const img = document.createElement('img');
           img.src = qr.toDataURL();
           box.appendChild(img);
 
-          const txt = document.createElement('div');
-          txt.className = 'qr-text';
-          txt.textContent = val;
-          box.appendChild(txt);
+          const idText = document.createElement('div');
+          idText.className = 'qr-text';
+          idText.textContent = id;
+          box.appendChild(idText);
+
+          if (name) {
+            const nameText = document.createElement('div');
+            nameText.className = 'qr-name';
+            nameText.textContent = name;
+            box.appendChild(nameText);
+          }
 
           container.appendChild(box);
         }
       });
+
+// QRコードが1つでも生成されたら印刷ボタンと拡縮ボタンを表示
+const qrBoxes = document.querySelectorAll('.qr-box');
+const printBtn = document.getElementById('printBtn');
+const toggleSizeBtn = document.getElementById('toggleSizeBtn');
+
+if (qrBoxes.length > 0) {
+  printBtn.style.display = 'inline-block';
+  printBtn.classList.add('no-print');  // ←これで印刷時には消える
+
+  toggleSizeBtn.style.display = 'inline-block';
+  toggleSizeBtn.classList.add('no-print');
+  toggleSizeBtn.textContent = isLargeQRCode ? '縮小' : '拡大';
+} else {
+  printBtn.style.display = 'none';
+  toggleSizeBtn.style.display = 'none';
+}
+
+    }
+
+    function toggleQRCodeSize() {
+      const qrBoxes = document.querySelectorAll('.qr-box');
+      if (qrBoxes.length === 0) return;
+
+      isLargeQRCode = !isLargeQRCode;
+      qrBoxes.forEach(box => box.classList.toggle('large', isLargeQRCode));
+
+      const toggleSizeBtn = document.getElementById('toggleSizeBtn');
+      toggleSizeBtn.textContent = isLargeQRCode ? '縮小' : '拡大';
     }
   </script>
 </body>
