@@ -48,6 +48,16 @@
       margin: 15px;
     }
 
+    .data-status {
+      margin-top: 8px;
+      color: #444;
+      font-size: 12px;
+    }
+
+    .data-status.error {
+      color: #b00020;
+    }
+
     /* 印刷時に非表示 */
 @media print {
   .no-print,
@@ -100,6 +110,20 @@
       margin-top: 1mm;
       color: #000;
     }
+
+    .qr-link-button {
+      margin-top: 3mm;
+      padding: 4px 8px;
+      font-size: 10pt;
+      cursor: pointer;
+    }
+
+    .registered-label {
+      margin-top: 2mm;
+      color: #d00000;
+      font-size: 10pt;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -114,8 +138,10 @@
 
     <div id="buttons">
       <button onclick="generateQRCodes()">QRコードを生成</button>
+      <button id="updateDataBtn" type="button" onclick="updateRegisteredIds()">データ更新</button>
       <button id="printBtn" onclick="window.print()" style="display:none;">印刷</button>
       <button id="toggleSizeBtn" onclick="toggleQRCodeSize()" style="display:none;">拡大</button>
+      <div id="dataStatus" class="data-status">データ未取得</div>
     </div>
   </div>
 
@@ -123,7 +149,10 @@
 
   <script>
     const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfsnmtwi-h-wtKXtl4_LNaeH85BMDYT4OtVmJCaaxndELKZFw/viewform?usp=pp_url&entry.268306040=';
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/15UGqdqOwVQNx9qY02HtZIaqrD6Kd1dwmWuj4p3EGIGg/export?format=csv&gid=93776902';
     let isLargeQRCode = false;
+    let registeredIds = [];
+    let registeredIdSet = new Set();
 
     const inputsDiv = document.getElementById('inputs');
     for (let i = 1; i <= 10; i++) {
@@ -149,6 +178,116 @@
       return /^[A-Z]{1}\d{6}\d{2}$/.test(str);
     }
 
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let value = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            value += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          row.push(value);
+          value = '';
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+          if (char === '\r' && nextChar === '\n') {
+            i++;
+          }
+          row.push(value);
+          rows.push(row);
+          row = [];
+          value = '';
+        } else {
+          value += char;
+        }
+      }
+
+      if (value || row.length > 0) {
+        row.push(value);
+        rows.push(row);
+      }
+
+      return rows;
+    }
+
+    function setDataStatus(message, isError = false) {
+      const dataStatus = document.getElementById('dataStatus');
+      dataStatus.textContent = message;
+      dataStatus.classList.toggle('error', isError);
+    }
+
+    function getSheetFetchErrorMessage(error) {
+      if (error.name === 'AbortError') {
+        return 'データ取得がタイムアウトしました。通信状況を確認して、データ更新を再実行してください。';
+      }
+
+      if (error instanceof TypeError) {
+        return 'データ取得に失敗しました。CORS、リダイレクト、またはネットワーク遮断の可能性があります。スプレッドシートが「リンクを知っている全員が閲覧可」になっているか確認してください。';
+      }
+
+      return error.message || 'データ取得に失敗しました。';
+    }
+
+    async function updateRegisteredIds() {
+      const updateDataBtn = document.getElementById('updateDataBtn');
+
+      updateDataBtn.disabled = true;
+      setDataStatus('データ取得中...');
+
+      try {
+        console.log('[Sheet CSV] fetch start:', SHEET_CSV_URL);
+        const response = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+
+        console.log('[Sheet CSV] response.status:', response.status);
+        console.log('[Sheet CSV] response.url:', response.url);
+        console.log('[Sheet CSV] response.type:', response.type);
+
+        const csvText = await response.text();
+        console.log('[Sheet CSV] csvText.slice(0, 300):', csvText.slice(0, 300));
+
+        if (!response.ok) {
+          throw new Error(`スプレッドシート取得エラー: HTTP ${response.status}`);
+        }
+
+        const trimmedCsvText = csvText.trim();
+        if (!trimmedCsvText) {
+          throw new Error('CSVデータが空でした。');
+        }
+
+        if (trimmedCsvText.startsWith('<') || trimmedCsvText.toLowerCase().includes('<html')) {
+          throw new Error('CSVではなくHTMLが返されました。ログイン画面や権限エラー画面へリダイレクトされた可能性があります。');
+        }
+
+        const rows = parseCsv(csvText);
+        console.log('[Sheet CSV] parseCsv(csvText)[0]:', rows[0]);
+
+        const fetchedIds = rows
+          .map(row => (row[0] || '').trim())
+          .filter(id => id && isValidID(id));
+        console.log('[Sheet CSV] fetchedIds.length:', fetchedIds.length);
+
+        registeredIds = fetchedIds;
+        registeredIdSet = new Set(registeredIds);
+        setDataStatus(`登録済ID: ${registeredIds.length}件取得済`);
+        return true;
+      } catch (error) {
+        console.error('スプレッドシート取得エラー:', error);
+        setDataStatus(getSheetFetchErrorMessage(error), true);
+        return false;
+      } finally {
+        updateDataBtn.disabled = false;
+      }
+    }
     function generateQRCodes() {
       const container = document.getElementById('qr-container');
       container.innerHTML = '';
@@ -172,8 +311,9 @@
         const name = nameInputs[i].value.trim();
 
         if (id) {
+          const qrUrl = FORM_URL + encodeURIComponent(id);
           const qr = new QRious({
-            value: FORM_URL + encodeURIComponent(id),
+            value: qrUrl,
             size: 285
           });
 
@@ -199,6 +339,22 @@
             box.appendChild(nameText);
           }
 
+          if (registeredIdSet.has(id)) {
+            const registeredLabel = document.createElement('div');
+            registeredLabel.className = 'registered-label no-print';
+            registeredLabel.textContent = '登録済';
+            box.appendChild(registeredLabel);
+          }
+
+          const linkButton = document.createElement('button');
+          linkButton.type = 'button';
+          linkButton.className = 'qr-link-button no-print';
+          linkButton.textContent = 'フォームを開く';
+          linkButton.addEventListener('click', () => {
+            window.open(qrUrl, '_blank', 'noopener,noreferrer');
+          });
+          box.appendChild(linkButton);
+
           container.appendChild(box);
         }
       });
@@ -221,6 +377,8 @@ if (qrBoxes.length > 0) {
 }
 
     }
+
+    updateRegisteredIds();
 
     function toggleQRCodeSize() {
       const qrBoxes = document.querySelectorAll('.qr-box');
