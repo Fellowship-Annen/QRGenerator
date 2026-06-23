@@ -38,10 +38,36 @@
       align-items: flex-start;
     }
 
-    .input-group input {
+    .input-group input,
+    .input-group select {
       width: 100%;
       padding: 6px;
       font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    .mode-select {
+      margin-bottom: 6px;
+    }
+
+    .normal-id-fields {
+      display: grid;
+      grid-template-columns: 64px 1fr 64px;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+
+    .custom-id-input {
+      margin-bottom: 6px;
+    }
+
+    .name-input {
+      margin-top: 2px;
+    }
+
+    .hidden {
+      display: none !important;
     }
 
     #buttons {
@@ -154,24 +180,136 @@
     let registeredIds = [];
     let registeredIdSet = new Set();
 
+    const OFFICE_PREFIXES = [
+      { value: 'S', label: 'S：さんらいず' },
+      { value: 'O', label: 'O：オーシャン' },
+      { value: 'F', label: 'F：フォージー' }
+    ];
+
+    function getTodayYYMMDD() {
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      return `${yy}${mm}${dd}`;
+    }
+
+    function expandOfficePrefixSelect(select) {
+      [...select.options].forEach(option => {
+        option.textContent = option.dataset.label;
+      });
+    }
+
+    function collapseOfficePrefixSelect(select) {
+      [...select.options].forEach(option => {
+        option.textContent = option.selected ? option.value : option.dataset.label;
+      });
+    }
+
+    function createOfficePrefixSelect() {
+      const select = document.createElement('select');
+      select.className = 'prefix-select';
+      OFFICE_PREFIXES.forEach(({ value, label }) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.dataset.label = label;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+
+      select.addEventListener('mousedown', () => expandOfficePrefixSelect(select));
+      select.addEventListener('focus', () => expandOfficePrefixSelect(select));
+      select.addEventListener('change', () => setTimeout(() => collapseOfficePrefixSelect(select), 0));
+      select.addEventListener('blur', () => collapseOfficePrefixSelect(select));
+      collapseOfficePrefixSelect(select);
+
+      return select;
+    }
+
+    function normalizeSerial(value) {
+      const digits = value.replace(/\D/g, '').slice(0, 2);
+      return digits ? digits.padStart(2, '0') : '';
+    }
+
+    function updateInputMode(group) {
+      const mode = group.querySelector('.mode-select').value;
+      const normalFields = group.querySelector('.normal-id-fields');
+      const customInput = group.querySelector('.custom-id-input');
+      const isCustom = mode === 'custom';
+
+      normalFields.classList.toggle('hidden', isCustom);
+      customInput.classList.toggle('hidden', !isCustom);
+    }
+
+    function getGeneratedId(group) {
+      const mode = group.querySelector('.mode-select').value;
+      if (mode === 'custom') {
+        return group.querySelector('.custom-id-input').value.trim();
+      }
+
+      const prefix = group.querySelector('.prefix-select').value;
+      const date = group.querySelector('.date-input').value.trim();
+      const serial = normalizeSerial(group.querySelector('.serial-input').value.trim());
+
+      if (!serial) return '';
+      return `${prefix}${date}${serial}`;
+    }
+
     const inputsDiv = document.getElementById('inputs');
+    const defaultDate = getTodayYYMMDD();
     for (let i = 1; i <= 10; i++) {
       const group = document.createElement('div');
       group.className = 'input-group';
 
-      const idInput = document.createElement('input');
-      idInput.type = 'text';
-      idInput.placeholder = `例：S250729${i.toString().padStart(2, '0')}`;
-      idInput.className = 'id-input';
+      const modeSelect = document.createElement('select');
+      modeSelect.className = 'mode-select';
+      modeSelect.innerHTML = '<option value="normal">通常入力</option><option value="custom">カスタム入力</option>';
+
+      const normalFields = document.createElement('div');
+      normalFields.className = 'normal-id-fields';
+
+      const prefixSelect = createOfficePrefixSelect();
+
+      const dateInput = document.createElement('input');
+      dateInput.type = 'text';
+      dateInput.inputMode = 'numeric';
+      dateInput.maxLength = 6;
+      dateInput.placeholder = 'YYMMDD';
+      dateInput.value = defaultDate;
+      dateInput.className = 'date-input';
+
+      const serialInput = document.createElement('input');
+      serialInput.type = 'text';
+      serialInput.inputMode = 'numeric';
+      serialInput.maxLength = 2;
+      serialInput.placeholder = i.toString().padStart(2, '0');
+      serialInput.className = 'serial-input';
+      serialInput.addEventListener('blur', () => {
+        serialInput.value = normalizeSerial(serialInput.value);
+      });
+
+      normalFields.appendChild(prefixSelect);
+      normalFields.appendChild(dateInput);
+      normalFields.appendChild(serialInput);
+
+      const customIdInput = document.createElement('input');
+      customIdInput.type = 'text';
+      customIdInput.placeholder = `例：S${defaultDate}${i.toString().padStart(2, '0')}`;
+      customIdInput.className = 'custom-id-input id-input hidden';
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.placeholder = '任意テキスト（名前など）';
       nameInput.className = 'name-input';
 
-      group.appendChild(idInput);
+      modeSelect.addEventListener('change', () => updateInputMode(group));
+
+      group.appendChild(modeSelect);
+      group.appendChild(normalFields);
+      group.appendChild(customIdInput);
       group.appendChild(nameInput);
       inputsDiv.appendChild(group);
+      updateInputMode(group);
     }
 
     function isValidID(str) {
@@ -292,23 +430,22 @@
       const container = document.getElementById('qr-container');
       container.innerHTML = '';
 
-      const idInputs = document.querySelectorAll('.id-input');
-      const nameInputs = document.querySelectorAll('.name-input');
+      const inputGroups = document.querySelectorAll('.input-group');
       let hasError = false;
 
-      idInputs.forEach((input, idx) => {
-        const val = input.value.trim();
-        if (val && !isValidID(val)) {
-          alert(`入力 ${idx + 1} の管理番号「${val}」は形式が正しくありません。\\n形式: A+YYMMDD+連番2桁 例：S25072901`);
+      inputGroups.forEach((group, idx) => {
+        const id = getGeneratedId(group);
+        if (id && !isValidID(id)) {
+          alert(`入力 ${idx + 1} の管理番号「${id}」は形式が正しくありません。\n形式: A+YYMMDD+連番2桁 例：S25072901`);
           hasError = true;
         }
       });
 
       if (hasError) return;
 
-      idInputs.forEach((idInput, i) => {
-        const id = idInput.value.trim();
-        const name = nameInputs[i].value.trim();
+      inputGroups.forEach((group) => {
+        const id = getGeneratedId(group);
+        const name = group.querySelector('.name-input').value.trim();
 
         if (id) {
           const qrUrl = FORM_URL + encodeURIComponent(id);
